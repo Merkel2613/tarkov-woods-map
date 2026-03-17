@@ -9,13 +9,17 @@
         #info {
             position: absolute; top: 10px; left: 10px; color: #00ff00;
             font-family: 'Courier New', monospace; pointer-events: none; 
-            background: rgba(0,0,0,0.7); padding: 8px; border: 1px solid #333;
-            z-index: 10;
+            background: rgba(0,0,0,0.8); padding: 12px; border: 1px solid #333;
+            z-index: 10; line-height: 1.4;
         }
+        .key-hint { color: #00ffff; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="info">WOODS HD | Зум: Колесико | Движение: ЛКМ</div>
+    <div id="info">
+        WOODS HD | <span class="key-hint">R</span> - Линейка | Зум: Колесико<br>
+        <span id="coord-label">Движение: ЛКМ</span>
+    </div>
     <canvas id="mapCanvas"></canvas>
 
 <script>
@@ -26,14 +30,18 @@
     let scale = 0.08; 
     let offsetX = 0, offsetY = 0;
     const tiles = {}; 
+    const loadedIcons = {};
 
     const minScale = 0.04; 
     const maxScale = 1.2;
 
+    let isRulerMode = false;
+    let rulerPoints = [];
+
     const overviewImg = new Image();
     overviewImg.src = 'map_overview.jpg';
 
-    // --- БАЗА ДАННЫХ МЕТОК ---
+    // --- ПОЛНАЯ БАЗА ДАННЫХ МЕТОК (БЕЗ ПОТЕРЬ) ---
     const markers = [
         { x: 4983, y: 20965, label: "Выход: Окраины", type: "exit_pmc" },
         { x: 2821, y: 15886, label: "Выход: ЗБ-014", type: "exit_pmc" },
@@ -41,8 +49,8 @@
         { x: 18911, y: 6664, label: "Выход: А-Выход на мосту", type: "exit_pmc" },
         { x: 20054, y: 13917, label: "Выход: Северный пост ООН", type: "exit_pmc" },
         { x: 17122, y: 15952, label: "Выход: ЗБ-016", type: "exit_pmc" },
-        { x: 19441, y: 19896, label: "Выход: Южный ООН", type: "exit_pmc" },
-        { x: 13037, y: 21998, label: "Выход: Ворота ВС РФ", type: "exit_pmc" },
+        { x: 19441, y: 19896, label: "Выход: Южный ООН", type: "exit_both" },
+        { x: 13037, y: 21998, label: "Выход: Ворота ВС РФ", type: "exit_both" },
         { x: 4946, y: 21629, label: "Выход: Окраины", type: "exit_scav" },
         { x: 3870, y: 19098, label: "Выход: Изба Диких", type: "exit_scav" },
         { x: 7440, y: 19691, label: "Выход: Убежище Мертвеца", type: "exit_scav" },
@@ -50,9 +58,9 @@
         { x: 6183, y: 3162, label: "Выход: Бункер Диких", type: "exit_scav" },
         { x: 14223, y: 11583, label: "Выход: Горный Тайник", type: "exit_scav" },
         { x: 19257, y: 14487, label: "Выход: Восточные скалы", type: "exit_scav" },
-        { x: 19936, y: 17604, label: "Выход: Склад депо", type: "exit_scav" },
+        { x: 19384, y: 17609, label: "Выход: Склад депо", type: "exit_scav" },
         { x: 19780, y: 13850, label: "Дом Диких", type: "interest" },
-        { x: 12580, y: 10950, label: "Лесопилка", type: "boss" },
+        { x: 12580, y: 10950, label: "Лесопилка", type: "boss_shturman.png" }, // Пример иконки
     ];
 
     function init() {
@@ -66,7 +74,6 @@
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
 
         if (overviewImg.complete) {
             ctx.drawImage(overviewImg, offsetX, offsetY, mapW * scale, mapH * scale);
@@ -86,11 +93,8 @@
                         const name = `tile_${ty}_${tx}`;
                         const screenX = offsetX + tx * scale;
                         const screenY = offsetY + ty * scale;
-                        const screenW = tileSize * scale + 0.6;
-                        const screenH = tileSize * scale + 0.6;
-
                         if (tiles[name] && tiles[name] !== "loading") {
-                            ctx.drawImage(tiles[name], screenX, screenY, screenW, screenH);
+                            ctx.drawImage(tiles[name], screenX, screenY, tileSize * scale + 0.6, tileSize * scale + 0.6);
                         } else if (!tiles[name]) {
                             const img = new Image();
                             img.src = `tiles_ultra/${name}.jpg`;
@@ -102,6 +106,7 @@
             }
         }
         drawMarkers();
+        drawRuler();
     }
 
     function drawMarkers() {
@@ -109,108 +114,135 @@
         const screenX = offsetX + m.x * scale;
         const screenY = offsetY + m.y * scale;
 
-        const colorPMC = "#00ff00";  // Зеленый
-        const colorScav = "#ff8c00"; // Оранжевый
-        const colorBoth = "#ffff00"; // Желтый
+        // 1. ЛОГИКА ДЛЯ ПРЕДМЕТОВ И БОССОВ (как и была)
+        if (m.type.includes('.png') || m.type.includes('.webp')) {
+            if (!loadedIcons[m.type]) {
+                loadedIcons[m.type] = new Image();
+                const folder = m.type.endsWith('.webp') ? 'items' : 'markers';
+                loadedIcons[m.type].src = `icons/${folder}/${m.type}`;
+                loadedIcons[m.type].onload = () => draw();
+            }
+            const img = loadedIcons[m.type];
+            if (img.complete) {
+                const size = 32 * (scale < 0.1 ? 0.8 : 1.2);
+                ctx.drawImage(img, screenX - size/2, screenY - size/2, size, size);
+                ctx.font = "bold 12px Arial";
+                ctx.fillStyle = "white"; ctx.strokeStyle = "black"; ctx.lineWidth = 2;
+                ctx.strokeText(m.label, screenX - ctx.measureText(m.label).width/2, screenY + size/2 + 12);
+                ctx.fillText(m.label, screenX - ctx.measureText(m.label).width/2, screenY + size/2 + 12);
+            }
+            return;
+        }
+
+        // 2. ЛОГИКА ДЛЯ ВЫХОДОВ С ДВОЙНЫМИ ИКОНКАМИ
+        const colorPMC = "#00ff00", colorScav = "#ff8c00", colorBoth = "#ffff00";
+        let isBoth = (m.type === "exit_both" || m.label.includes("Южный ООН") || m.label.includes("Ворота ВС РФ"));
         
-        let markerColor = "#ffffff";
-        let isBoth = (m.type === "exit_both" || (m.label.includes("Южный ООН") || m.label.includes("Ворота ВС РФ")));
+        const iconSize = 24 * (scale < 0.1 ? 0.8 : 1.1); // Размер иконок на карте
 
-        if (m.type === "exit_pmc") markerColor = colorPMC;
-        if (m.type === "exit_scav") markerColor = colorScav;
-        if (m.type === "boss") markerColor = "#ff0000";
-        if (m.type === "interest") markerColor = "#00bfff";
+        // Загружаем нужные иконки
+        const pmcIconName = 'extract_pmc.png';
+        const scavIconName = 'extract_scav.png';
 
-        // 1. Рисуем саму точку (маркер)
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = isBoth ? colorBoth : markerColor;
-        ctx.beginPath();
-        const radius = isBoth ? 8 : 6;
-        ctx.arc(screenX, screenY, radius / (scale * 5 < 1 ? 1 : scale * 5), 0, Math.PI * 2);
-        ctx.fillStyle = isBoth ? colorBoth : markerColor;
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        if (!loadedIcons[pmcIconName]) { loadedIcons[pmcIconName] = new Image(); loadedIcons[pmcIconName].src = `icons/markers/${pmcIconName}`; loadedIcons[pmcIconName].onload = () => draw(); }
+        if (!loadedIcons[scavIconName]) { loadedIcons[scavIconName] = new Image(); loadedIcons[scavIconName].src = `icons/markers/${scavIconName}`; loadedIcons[scavIconName].onload = () => draw(); }
 
-        // 2. Расчет размеров плашки
+        // --- РИСУЕМ ИКОНКИ ВМЕСТО ТОЧЕК ---
+        if (isBoth) {
+            // Рисуем две иконки рядом
+            if (loadedIcons[pmcIconName].complete) {
+                ctx.drawImage(loadedIcons[pmcIconName], screenX - iconSize - 2, screenY - iconSize/2, iconSize, iconSize);
+            }
+            if (loadedIcons[scavIconName].complete) {
+                ctx.drawImage(loadedIcons[scavIconName], screenX + 2, screenY - iconSize/2, iconSize, iconSize);
+            }
+        } else {
+            // Рисуем одну иконку (ЧВК или Дикий)
+            const activeIcon = m.type === "exit_pmc" ? loadedIcons[pmcIconName] : loadedIcons[scavIconName];
+            if (activeIcon.complete) {
+                ctx.drawImage(activeIcon, screenX - iconSize/2, screenY - iconSize/2, iconSize, iconSize);
+            }
+        }
+
+        // --- РИСУЕМ ТВОИ ПЛАШКИ С ТЕКСТОМ (БЕЗ ИЗМЕНЕНИЙ) ---
         ctx.font = "bold 14px Arial";
         const textWidth = ctx.measureText(m.label).width;
         const padding = 6;
         const rectW = textWidth + padding * 2;
         const rectH = 20;
-        const rectX = screenX + 12;
-        const rectY = screenY - 12;
+        const rX = screenX + (isBoth ? iconSize : iconSize/2) + 5; // Смещаем плашку чуть вправо от иконок
+        const rY = screenY - 10;
 
-        // 3. Рисуем ФОН плашки
+        let mColor = m.type === "exit_pmc" ? colorPMC : (m.type === "exit_scav" ? colorScav : colorBoth);
+
         if (isBoth) {
-            // Левая половина - зеленая
-            ctx.fillStyle = colorPMC;
-            ctx.fillRect(rectX, rectY, rectW / 2, rectH);
-            // Правая половина - оранжевая
-            ctx.fillStyle = colorScav;
-            ctx.fillRect(rectX + rectW / 2, rectY, rectW / 2, rectH);
-            
-            // Черная рамка вокруг общей плашки
-            ctx.strokeStyle = "#000000";
-            ctx.lineWidth = 1;
-            ctx.strokeRect(rectX, rectY, rectW, rectH);
+            ctx.fillStyle = colorPMC; ctx.fillRect(rX, rY, rectW / 2, rectH);
+            ctx.fillStyle = colorScav; ctx.fillRect(rX + rectW / 2, rY, rectW / 2, rectH);
+            ctx.strokeStyle = "#000000"; ctx.lineWidth = 1; ctx.strokeRect(rX, rY, rectW, rectH);
         } else {
-            // Обычный фон в цвет выхода
-            ctx.fillStyle = markerColor;
-            ctx.fillRect(rectX, rectY, rectW, rectH);
-            
-            // Темная обводка для светлых фонов
-            ctx.strokeStyle = "rgba(0,0,0,0.5)";
-            ctx.lineWidth = 1;
-            ctx.strokeRect(rectX, rectY, rectW, rectH);
+            ctx.fillStyle = mColor; ctx.fillRect(rX, rY, rectW, rectH);
+            ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 1; ctx.strokeRect(rX, rY, rectW, rectH);
         }
 
-        // 4. Рисуем ТЕКСТ (всегда черный)
         ctx.fillStyle = "#000000"; 
-        ctx.fillText(m.label, rectX + padding, rectY + 15);
+        ctx.fillText(m.label, rX + padding, rY + 15);
     });
 }
 
-    // --- ВОЗВРАЩАЕМ УПРАВЛЕНИЕ ---
+    function drawRuler() {
+        if (!isRulerMode || rulerPoints.length === 0) return;
+        ctx.lineWidth = 3; ctx.strokeStyle = "#00ffff"; ctx.setLineDash([10, 5]);
+        const p1 = { x: offsetX + rulerPoints[0].x * scale, y: offsetY + rulerPoints[0].y * scale };
+        ctx.beginPath(); ctx.arc(p1.x, p1.y, 5, 0, Math.PI * 2); ctx.stroke(); ctx.moveTo(p1.x, p1.y);
+        if (rulerPoints.length === 2) {
+            const p2 = { x: offsetX + rulerPoints[1].x * scale, y: offsetY + rulerPoints[1].y * scale };
+            ctx.lineTo(p2.x, p2.y); ctx.stroke();
+            const dist = Math.round(Math.sqrt(Math.pow(rulerPoints[1].x - rulerPoints[0].x, 2) + Math.pow(rulerPoints[1].y - rulerPoints[0].y, 2)) * 0.15);
+            ctx.setLineDash([]); ctx.font = "bold 20px Arial"; ctx.fillStyle = "#00ffff";
+            ctx.strokeText(dist + " м", (p1.x + p2.x)/2, (p1.y + p2.y)/2);
+            ctx.fillText(dist + " м", (p1.x + p2.x)/2, (p1.y + p2.y)/2);
+        }
+        ctx.setLineDash([]);
+    }
+
+    // --- УПРАВЛЕНИЕ ---
     let isDragging = false, lastX, lastY;
-
-    canvas.onmousedown = (e) => { 
-        isDragging = true; 
-        lastX = e.clientX; 
-        lastY = e.clientY; 
-    };
-
-    window.onmouseup = () => { 
-        isDragging = false; 
-    };
-
+    canvas.onmousedown = (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; };
+    window.onmouseup = () => isDragging = false;
     window.onmousemove = (e) => {
         if (!isDragging) return;
-        offsetX += e.clientX - lastX;
-        offsetY += e.clientY - lastY;
-        lastX = e.clientX; 
-        lastY = e.clientY;
-        draw();
+        offsetX += e.clientX - lastX; offsetY += e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY; draw();
     };
 
     canvas.onwheel = (e) => {
         e.preventDefault();
-        const zoomSpeed = 0.12;
-        let delta = e.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
+        const delta = e.deltaY > 0 ? 0.88 : 1.12;
         const newScale = scale * delta;
         if (newScale >= minScale && newScale <= maxScale) {
-            const mouseX = e.clientX - offsetX;
-            const mouseY = e.clientY - offsetY;
-            offsetX -= mouseX * (delta - 1);
-            offsetY -= mouseY * (delta - 1);
-            scale = newScale;
-            draw();
+            offsetX -= (e.clientX - offsetX) * (delta - 1);
+            offsetY -= (e.clientY - offsetY) * (delta - 1);
+            scale = newScale; draw();
         }
     };
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'к') {
+            isRulerMode = !isRulerMode; rulerPoints = [];
+            document.getElementById('coord-label').innerHTML = isRulerMode ? "РЕЖИМ ЛИНЕЙКИ ВКЛЮЧЕН" : "Движение: ЛКМ";
+            draw();
+        }
+    });
 
     canvas.onclick = (e) => {
         const mapX = Math.round((e.clientX - offsetX) / scale);
         const mapY = Math.round((e.clientY - offsetY) / scale);
-        document.getElementById('info').innerHTML = `WOODS HD | Координаты: X: ${mapX}, Y: ${mapY}`;
+        if (isRulerMode) {
+            if (rulerPoints.length >= 2) rulerPoints = [];
+            rulerPoints.push({x: mapX, y: mapY}); draw();
+        } else {
+            document.getElementById('coord-label').innerHTML = `Координаты: X: ${mapX}, Y: ${mapY}`;
+        }
     };
 
     window.onresize = init;
