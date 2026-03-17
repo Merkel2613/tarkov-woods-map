@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tarkov Woods HD</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050505; }
+        canvas { display: block; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        #info {
+            position: absolute; top: 10px; left: 10px; color: #00ff00;
+            font-family: 'Courier New', monospace; pointer-events: none; 
+            background: rgba(0,0,0,0.7); padding: 8px; border: 1px solid #333;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">WOODS HD | Зум: Колесико | Движение: ЛКМ</div>
+    <canvas id="mapCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('mapCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const mapW = 25088, mapH = 22528, tileSize = 512;
+    let scale = 0.08; 
+    let offsetX = 0, offsetY = 0;
+    const tiles = {}; 
+
+    const minScale = 0.04; 
+    const maxScale = 1.2;
+
+    const overviewImg = new Image();
+    overviewImg.src = 'map_overview.jpg';
+
+    // --- БАЗА ДАННЫХ МЕТОК ---
+    const markers = [
+        { x: 4983, y: 20965, label: "Выход: Окраины", type: "exit_pmc" },
+        { x: 2821, y: 15886, label: "Выход: ЗБ-014", type: "exit_pmc" },
+        { x: 2878, y: 14209, label: "Выход: Проход у ЛЭП", type: "exit_pmc" },
+        { x: 18911, y: 6664, label: "Выход: А-Выход на мосту", type: "exit_pmc" },
+        { x: 20054, y: 13917, label: "Выход: Северный пост ООН", type: "exit_pmc" },
+        { x: 17122, y: 15952, label: "Выход: ЗБ-016", type: "exit_pmc" },
+        { x: 19441, y: 19896, label: "Выход: Южный ООН", type: "exit_pmc" },
+        { x: 13037, y: 21998, label: "Выход: Ворота ВС РФ", type: "exit_pmc" },
+        { x: 4946, y: 21629, label: "Выход: Окраины", type: "exit_scav" },
+        { x: 3870, y: 19098, label: "Выход: Изба Диких", type: "exit_scav" },
+        { x: 7440, y: 19691, label: "Выход: Убежище Мертвеца", type: "exit_scav" },
+        { x: 7662, y: 18750, label: "Выход: Лодка", type: "exit_scav" },
+        { x: 6183, y: 3162, label: "Выход: Бункер Диких", type: "exit_scav" },
+        { x: 14223, y: 11583, label: "Выход: Горный Тайник", type: "exit_scav" },
+        { x: 19257, y: 14487, label: "Выход: Восточные скалы", type: "exit_scav" },
+        { x: 19936, y: 17604, label: "Выход: Склад депо", type: "exit_scav" },
+        { x: 19780, y: 13850, label: "Дом Диких", type: "interest" },
+        { x: 12580, y: 10950, label: "Лесопилка", type: "boss" },
+    ];
+
+    function init() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        offsetX = canvas.width / 2 - (mapW * scale) / 2;
+        offsetY = canvas.height / 2 - (mapH * scale) / 2;
+        draw();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        if (overviewImg.complete) {
+            ctx.drawImage(overviewImg, offsetX, offsetY, mapW * scale, mapH * scale);
+        }
+
+        if (scale > 0.07) {
+            const startX = Math.floor(Math.max(0, -offsetX / scale / tileSize));
+            const startY = Math.floor(Math.max(0, -offsetY / scale / tileSize));
+            const endX = Math.ceil((canvas.width - offsetX) / scale / tileSize);
+            const endY = Math.ceil((canvas.height - offsetY) / scale / tileSize);
+
+            for (let py = startY; py <= endY; py++) {
+                for (let px = startX; px <= endX; px++) {
+                    const tx = px * tileSize;
+                    const ty = py * tileSize;
+                    if (tx < mapW && ty < mapH) {
+                        const name = `tile_${ty}_${tx}`;
+                        const screenX = offsetX + tx * scale;
+                        const screenY = offsetY + ty * scale;
+                        const screenW = tileSize * scale + 0.6;
+                        const screenH = tileSize * scale + 0.6;
+
+                        if (tiles[name] && tiles[name] !== "loading") {
+                            ctx.drawImage(tiles[name], screenX, screenY, screenW, screenH);
+                        } else if (!tiles[name]) {
+                            const img = new Image();
+                            img.src = `tiles_ultra/${name}.jpg`;
+                            img.onload = () => { tiles[name] = img; draw(); };
+                            tiles[name] = "loading";
+                        }
+                    }
+                }
+            }
+        }
+        drawMarkers();
+    }
+
+    function drawMarkers() {
+    markers.forEach(m => {
+        const screenX = offsetX + m.x * scale;
+        const screenY = offsetY + m.y * scale;
+
+        const colorPMC = "#00ff00";  // Зеленый
+        const colorScav = "#ff8c00"; // Оранжевый
+        const colorBoth = "#ffff00"; // Желтый
+        
+        let markerColor = "#ffffff";
+        let isBoth = (m.type === "exit_both" || (m.label.includes("Южный ООН") || m.label.includes("Ворота ВС РФ")));
+
+        if (m.type === "exit_pmc") markerColor = colorPMC;
+        if (m.type === "exit_scav") markerColor = colorScav;
+        if (m.type === "boss") markerColor = "#ff0000";
+        if (m.type === "interest") markerColor = "#00bfff";
+
+        // 1. Рисуем саму точку (маркер)
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = isBoth ? colorBoth : markerColor;
+        ctx.beginPath();
+        const radius = isBoth ? 8 : 6;
+        ctx.arc(screenX, screenY, radius / (scale * 5 < 1 ? 1 : scale * 5), 0, Math.PI * 2);
+        ctx.fillStyle = isBoth ? colorBoth : markerColor;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // 2. Расчет размеров плашки
+        ctx.font = "bold 14px Arial";
+        const textWidth = ctx.measureText(m.label).width;
+        const padding = 6;
+        const rectW = textWidth + padding * 2;
+        const rectH = 20;
+        const rectX = screenX + 12;
+        const rectY = screenY - 12;
+
+        // 3. Рисуем ФОН плашки
+        if (isBoth) {
+            // Левая половина - зеленая
+            ctx.fillStyle = colorPMC;
+            ctx.fillRect(rectX, rectY, rectW / 2, rectH);
+            // Правая половина - оранжевая
+            ctx.fillStyle = colorScav;
+            ctx.fillRect(rectX + rectW / 2, rectY, rectW / 2, rectH);
+            
+            // Черная рамка вокруг общей плашки
+            ctx.strokeStyle = "#000000";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(rectX, rectY, rectW, rectH);
+        } else {
+            // Обычный фон в цвет выхода
+            ctx.fillStyle = markerColor;
+            ctx.fillRect(rectX, rectY, rectW, rectH);
+            
+            // Темная обводка для светлых фонов
+            ctx.strokeStyle = "rgba(0,0,0,0.5)";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(rectX, rectY, rectW, rectH);
+        }
+
+        // 4. Рисуем ТЕКСТ (всегда черный)
+        ctx.fillStyle = "#000000"; 
+        ctx.fillText(m.label, rectX + padding, rectY + 15);
+    });
+}
+
+    // --- ВОЗВРАЩАЕМ УПРАВЛЕНИЕ ---
+    let isDragging = false, lastX, lastY;
+
+    canvas.onmousedown = (e) => { 
+        isDragging = true; 
+        lastX = e.clientX; 
+        lastY = e.clientY; 
+    };
+
+    window.onmouseup = () => { 
+        isDragging = false; 
+    };
+
+    window.onmousemove = (e) => {
+        if (!isDragging) return;
+        offsetX += e.clientX - lastX;
+        offsetY += e.clientY - lastY;
+        lastX = e.clientX; 
+        lastY = e.clientY;
+        draw();
+    };
+
+    canvas.onwheel = (e) => {
+        e.preventDefault();
+        const zoomSpeed = 0.12;
+        let delta = e.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
+        const newScale = scale * delta;
+        if (newScale >= minScale && newScale <= maxScale) {
+            const mouseX = e.clientX - offsetX;
+            const mouseY = e.clientY - offsetY;
+            offsetX -= mouseX * (delta - 1);
+            offsetY -= mouseY * (delta - 1);
+            scale = newScale;
+            draw();
+        }
+    };
+
+    canvas.onclick = (e) => {
+        const mapX = Math.round((e.clientX - offsetX) / scale);
+        const mapY = Math.round((e.clientY - offsetY) / scale);
+        document.getElementById('info').innerHTML = `WOODS HD | Координаты: X: ${mapX}, Y: ${mapY}`;
+    };
+
+    window.onresize = init;
+    overviewImg.onload = draw;
+    init();
+</script>
+</body>
+</html>
