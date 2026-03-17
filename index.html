@@ -13,9 +13,19 @@
             z-index: 10; line-height: 1.4;
         }
         .key-hint { color: #00ffff; font-weight: bold; }
+        .close-btn:hover { color: #ff0000; }
     </style>
 </head>
-<body>
+<body> 
+    <div id="modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:#2d2d2d; border:1px solid #444; border-radius:8px; width:300px; padding:15px; z-index:100; color:white; font-family:Arial, sans-serif; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <b id="modal-title" style="font-size:20px; color:#e0b47a;">Заголовок</b>
+            <span class="close-btn" onclick="closeModal()" style="cursor:pointer; font-size:24px;">&times;</span>
+        </div>
+        <img id="modal-img" src="" style="width:100%; border-radius:4px; margin-bottom:10px; display:none;">
+        <div id="modal-desc" style="font-size:14px; color:#ccc;"></div>
+    </div>
+
     <div id="info">
         WOODS HD | <span class="key-hint">R</span> - Линейка | Зум: Колесико<br>
         <span id="coord-label">Движение: ЛКМ</span>
@@ -41,7 +51,11 @@
     const overviewImg = new Image();
     overviewImg.src = 'map_overview.jpg';
 
-    // --- ПОЛНАЯ БАЗА ДАННЫХ МЕТОК (БЕЗ ПОТЕРЬ) ---
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+    }
+
+    // ТВОЯ ПОЛНАЯ БАЗА МЕТОК
     const markers = [
         { x: 4983, y: 20965, label: "Выход: Окраины", type: "exit_pmc" },
         { x: 2821, y: 15886, label: "Выход: ЗБ-014", type: "exit_pmc" },
@@ -59,8 +73,35 @@
         { x: 14223, y: 11583, label: "Выход: Горный Тайник", type: "exit_scav" },
         { x: 19257, y: 14487, label: "Выход: Восточные скалы", type: "exit_scav" },
         { x: 19384, y: 17609, label: "Выход: Склад депо", type: "exit_scav" },
-        { x: 19780, y: 13850, label: "Дом Диких", type: "interest" },
-        { x: 12580, y: 10950, label: "Лесопилка", type: "boss_shturman.png" }, // Пример иконки
+        { x: 10387, y: 14687, label: "Штурман", type: "boss_shturman.png" }, 
+
+        // СПАВНЫ ЧВК
+        { x: 4585, y: 3499, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 4717, y: 5488, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 4140, y: 8778, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 7027, y: 10058, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 4624, y: 13982, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 4002, y: 15280, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 2961, y: 20085, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 6832, y: 20166, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 13771, y: 22113, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 16789, y: 19251, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 16378, y: 18600, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 19384, y: 19913, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 19581, y: 17711, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 19204, y: 16668, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 19029, y: 14237, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 16441, y: 13122, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 19289, y: 12551, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 15001, y: 11919, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 21119, y: 9360, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 18026, y: 6639, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 15401, y: 5160, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 11828, y: 5520, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+        { x: 9771, y: 4382, label: "Спавн ЧВК", type: "spawn_pmc.png" },
+
+        // ПРИМЕРЫ ДЛЯ ДИКИХ (Добавь свои координаты здесь)
+        { x: 12000, y: 14000, label: "Дикие", type: "spawn_scav.png" }
     ];
 
     function init() {
@@ -73,31 +114,21 @@
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.imageSmoothingEnabled = true;
-
-        if (overviewImg.complete) {
-            ctx.drawImage(overviewImg, offsetX, offsetY, mapW * scale, mapH * scale);
-        }
-
+        if (overviewImg.complete) ctx.drawImage(overviewImg, offsetX, offsetY, mapW * scale, mapH * scale);
         if (scale > 0.07) {
-            const startX = Math.floor(Math.max(0, -offsetX / scale / tileSize));
-            const startY = Math.floor(Math.max(0, -offsetY / scale / tileSize));
-            const endX = Math.ceil((canvas.width - offsetX) / scale / tileSize);
-            const endY = Math.ceil((canvas.height - offsetY) / scale / tileSize);
-
-            for (let py = startY; py <= endY; py++) {
-                for (let px = startX; px <= endX; px++) {
-                    const tx = px * tileSize;
-                    const ty = py * tileSize;
+            const sX = Math.floor(Math.max(0, -offsetX / scale / tileSize));
+            const sY = Math.floor(Math.max(0, -offsetY / scale / tileSize));
+            const eX = Math.ceil((canvas.width - offsetX) / scale / tileSize);
+            const eY = Math.ceil((canvas.height - offsetY) / scale / tileSize);
+            for (let py = sY; py <= eY; py++) {
+                for (let px = sX; px <= eX; px++) {
+                    const tx = px * tileSize, ty = py * tileSize;
                     if (tx < mapW && ty < mapH) {
                         const name = `tile_${ty}_${tx}`;
-                        const screenX = offsetX + tx * scale;
-                        const screenY = offsetY + ty * scale;
                         if (tiles[name] && tiles[name] !== "loading") {
-                            ctx.drawImage(tiles[name], screenX, screenY, tileSize * scale + 0.6, tileSize * scale + 0.6);
+                            ctx.drawImage(tiles[name], offsetX + tx * scale, offsetY + ty * scale, tileSize * scale + 0.6, tileSize * scale + 0.6);
                         } else if (!tiles[name]) {
-                            const img = new Image();
-                            img.src = `tiles_ultra/${name}.jpg`;
+                            const img = new Image(); img.src = `tiles_ultra/${name}.jpg`;
                             img.onload = () => { tiles[name] = img; draw(); };
                             tiles[name] = "loading";
                         }
@@ -105,89 +136,58 @@
                 }
             }
         }
-        drawMarkers();
-        drawRuler();
+        drawMarkers(); drawRuler();
     }
 
     function drawMarkers() {
-    markers.forEach(m => {
-        const screenX = offsetX + m.x * scale;
-        const screenY = offsetY + m.y * scale;
+        markers.forEach(m => {
+            const sX = offsetX + m.x * scale;
+            const sY = offsetY + m.y * scale;
 
-        // 1. ЛОГИКА ДЛЯ ПРЕДМЕТОВ И БОССОВ (как и была)
-        if (m.type.includes('.png') || m.type.includes('.webp')) {
-            if (!loadedIcons[m.type]) {
-                loadedIcons[m.type] = new Image();
-                const folder = m.type.endsWith('.webp') ? 'items' : 'markers';
-                loadedIcons[m.type].src = `icons/${folder}/${m.type}`;
-                loadedIcons[m.type].onload = () => draw();
+            if (m.type.includes('.png')) {
+                if (!loadedIcons[m.type]) {
+                    loadedIcons[m.type] = new Image();
+                    loadedIcons[m.type].src = `icons/markers/${m.type}`;
+                    loadedIcons[m.type].onload = () => draw();
+                }
+                const img = loadedIcons[m.type];
+                if (img.complete) {
+                    const size = 32 * (scale < 0.1 ? 0.8 : 1.2);
+                    ctx.drawImage(img, sX - size/2, sY - size/2, size, size);
+                    // ТЕКСТ НЕ РИСУЕМ для Штурмана, Спавнов ЧВК и Диких
+                    const silent = ["boss_shturman.png", "spawn_pmc.png", "spawn_scav.png"];
+                    if (!silent.includes(m.type)) {
+                        ctx.font = "bold 12px Arial"; ctx.fillStyle = "white"; ctx.strokeStyle = "black"; ctx.lineWidth = 2;
+                        ctx.strokeText(m.label, sX - ctx.measureText(m.label).width/2, sY + size/2 + 12);
+                        ctx.fillText(m.label, sX - ctx.measureText(m.label).width/2, sY + size/2 + 12);
+                    }
+                }
+                return;
             }
-            const img = loadedIcons[m.type];
-            if (img.complete) {
-                const size = 32 * (scale < 0.1 ? 0.8 : 1.2);
-                ctx.drawImage(img, screenX - size/2, screenY - size/2, size, size);
-                ctx.font = "bold 12px Arial";
-                ctx.fillStyle = "white"; ctx.strokeStyle = "black"; ctx.lineWidth = 2;
-                ctx.strokeText(m.label, screenX - ctx.measureText(m.label).width/2, screenY + size/2 + 12);
-                ctx.fillText(m.label, screenX - ctx.measureText(m.label).width/2, screenY + size/2 + 12);
+
+            const cP = "#00ff00", cS = "#ff8c00", cB = "#ffff00";
+            let isB = (m.type === "exit_both" || m.label.includes("Южный ООН") || m.label.includes("Ворота ВС РФ"));
+            const iS = 24 * (scale < 0.1 ? 0.8 : 1.1); 
+            const pI = 'extract_pmc.png', sI = 'extract_scav.png';
+            if (!loadedIcons[pI]) { loadedIcons[pI] = new Image(); loadedIcons[pI].src = `icons/markers/${pI}`; loadedIcons[pI].onload = () => draw(); }
+            if (!loadedIcons[sI]) { loadedIcons[sI] = new Image(); loadedIcons[sI].src = `icons/markers/${sI}`; loadedIcons[sI].onload = () => draw(); }
+
+            if (isB) {
+                if (loadedIcons[pI].complete) ctx.drawImage(loadedIcons[pI], sX - iS - 2, sY - iS/2, iS, iS);
+                if (loadedIcons[sI].complete) ctx.drawImage(loadedIcons[sI], sX + 2, sY - iS/2, iS, iS);
+            } else {
+                const active = m.type === "exit_pmc" ? loadedIcons[pI] : loadedIcons[sI];
+                if (active.complete) ctx.drawImage(active, sX - iS/2, sY - iS/2, iS, iS);
             }
-            return;
-        }
 
-        // 2. ЛОГИКА ДЛЯ ВЫХОДОВ С ДВОЙНЫМИ ИКОНКАМИ
-        const colorPMC = "#00ff00", colorScav = "#ff8c00", colorBoth = "#ffff00";
-        let isBoth = (m.type === "exit_both" || m.label.includes("Южный ООН") || m.label.includes("Ворота ВС РФ"));
-        
-        const iconSize = 24 * (scale < 0.1 ? 0.8 : 1.1); // Размер иконок на карте
-
-        // Загружаем нужные иконки
-        const pmcIconName = 'extract_pmc.png';
-        const scavIconName = 'extract_scav.png';
-
-        if (!loadedIcons[pmcIconName]) { loadedIcons[pmcIconName] = new Image(); loadedIcons[pmcIconName].src = `icons/markers/${pmcIconName}`; loadedIcons[pmcIconName].onload = () => draw(); }
-        if (!loadedIcons[scavIconName]) { loadedIcons[scavIconName] = new Image(); loadedIcons[scavIconName].src = `icons/markers/${scavIconName}`; loadedIcons[scavIconName].onload = () => draw(); }
-
-        // --- РИСУЕМ ИКОНКИ ВМЕСТО ТОЧЕК ---
-        if (isBoth) {
-            // Рисуем две иконки рядом
-            if (loadedIcons[pmcIconName].complete) {
-                ctx.drawImage(loadedIcons[pmcIconName], screenX - iconSize - 2, screenY - iconSize/2, iconSize, iconSize);
-            }
-            if (loadedIcons[scavIconName].complete) {
-                ctx.drawImage(loadedIcons[scavIconName], screenX + 2, screenY - iconSize/2, iconSize, iconSize);
-            }
-        } else {
-            // Рисуем одну иконку (ЧВК или Дикий)
-            const activeIcon = m.type === "exit_pmc" ? loadedIcons[pmcIconName] : loadedIcons[scavIconName];
-            if (activeIcon.complete) {
-                ctx.drawImage(activeIcon, screenX - iconSize/2, screenY - iconSize/2, iconSize, iconSize);
-            }
-        }
-
-        // --- РИСУЕМ ТВОИ ПЛАШКИ С ТЕКСТОМ (БЕЗ ИЗМЕНЕНИЙ) ---
-        ctx.font = "bold 14px Arial";
-        const textWidth = ctx.measureText(m.label).width;
-        const padding = 6;
-        const rectW = textWidth + padding * 2;
-        const rectH = 20;
-        const rX = screenX + (isBoth ? iconSize : iconSize/2) + 5; // Смещаем плашку чуть вправо от иконок
-        const rY = screenY - 10;
-
-        let mColor = m.type === "exit_pmc" ? colorPMC : (m.type === "exit_scav" ? colorScav : colorBoth);
-
-        if (isBoth) {
-            ctx.fillStyle = colorPMC; ctx.fillRect(rX, rY, rectW / 2, rectH);
-            ctx.fillStyle = colorScav; ctx.fillRect(rX + rectW / 2, rY, rectW / 2, rectH);
-            ctx.strokeStyle = "#000000"; ctx.lineWidth = 1; ctx.strokeRect(rX, rY, rectW, rectH);
-        } else {
-            ctx.fillStyle = mColor; ctx.fillRect(rX, rY, rectW, rectH);
-            ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 1; ctx.strokeRect(rX, rY, rectW, rectH);
-        }
-
-        ctx.fillStyle = "#000000"; 
-        ctx.fillText(m.label, rX + padding, rY + 15);
-    });
-}
+            ctx.font = "bold 14px Arial";
+            const tw = ctx.measureText(m.label).width, rX = sX + (isB ? iS : iS/2) + 5, rY = sY - 10;
+            let mC = m.type === "exit_pmc" ? cP : (m.type === "exit_scav" ? cS : cB);
+            ctx.fillStyle = isB ? cP : mC; ctx.fillRect(rX, rY, isB ? (tw+12)/2 : tw+12, 20);
+            if(isB) { ctx.fillStyle = cS; ctx.fillRect(rX + (tw+12)/2, rY, (tw+12)/2, 20); }
+            ctx.fillStyle = "#000"; ctx.fillText(m.label, rX + 6, rY + 15);
+        });
+    }
 
     function drawRuler() {
         if (!isRulerMode || rulerPoints.length === 0) return;
@@ -199,55 +199,60 @@
             ctx.lineTo(p2.x, p2.y); ctx.stroke();
             const dist = Math.round(Math.sqrt(Math.pow(rulerPoints[1].x - rulerPoints[0].x, 2) + Math.pow(rulerPoints[1].y - rulerPoints[0].y, 2)) * 0.15);
             ctx.setLineDash([]); ctx.font = "bold 20px Arial"; ctx.fillStyle = "#00ffff";
-            ctx.strokeText(dist + " м", (p1.x + p2.x)/2, (p1.y + p2.y)/2);
-            ctx.fillText(dist + " м", (p1.x + p2.x)/2, (p1.y + p2.y)/2);
+            ctx.strokeText(dist + " м", (p1.x + p2.x)/2, (p1.y + p2.y)/2); ctx.fillText(dist + " м", (p1.x + p2.x)/2, (p1.y + p2.y)/2);
         }
         ctx.setLineDash([]);
     }
 
-    // --- УПРАВЛЕНИЕ ---
     let isDragging = false, lastX, lastY;
     canvas.onmousedown = (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; };
     window.onmouseup = () => isDragging = false;
     window.onmousemove = (e) => {
-        if (!isDragging) return;
-        offsetX += e.clientX - lastX; offsetY += e.clientY - lastY;
-        lastX = e.clientX; lastY = e.clientY; draw();
+        if (isDragging) { offsetX += e.clientX - lastX; offsetY += e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; draw(); }
     };
 
     canvas.onwheel = (e) => {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.88 : 1.12;
-        const newScale = scale * delta;
-        if (newScale >= minScale && newScale <= maxScale) {
-            offsetX -= (e.clientX - offsetX) * (delta - 1);
-            offsetY -= (e.clientY - offsetY) * (delta - 1);
-            scale = newScale; draw();
-        }
+        e.preventDefault(); const delta = e.deltaY > 0 ? 0.88 : 1.12; const newScale = scale * delta;
+        if (newScale >= minScale && newScale <= maxScale) { offsetX -= (e.clientX - offsetX) * (delta - 1); offsetY -= (e.clientY - offsetY) * (delta - 1); scale = newScale; draw(); }
     };
 
     window.addEventListener('keydown', (e) => {
         if (e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'к') {
             isRulerMode = !isRulerMode; rulerPoints = [];
-            document.getElementById('coord-label').innerHTML = isRulerMode ? "РЕЖИМ ЛИНЕЙКИ ВКЛЮЧЕН" : "Движение: ЛКМ";
+            document.getElementById('coord-label').innerHTML = isRulerMode ? "РЕЖИМ ЛИНЕЙКИ" : "Движение: ЛКМ";
             draw();
         }
     });
 
     canvas.onclick = (e) => {
-        const mapX = Math.round((e.clientX - offsetX) / scale);
-        const mapY = Math.round((e.clientY - offsetY) / scale);
-        if (isRulerMode) {
-            if (rulerPoints.length >= 2) rulerPoints = [];
-            rulerPoints.push({x: mapX, y: mapY}); draw();
-        } else {
-            document.getElementById('coord-label').innerHTML = `Координаты: X: ${mapX}, Y: ${mapY}`;
-        }
+        const mX = Math.round((e.clientX - offsetX) / scale);
+        const mY = Math.round((e.clientY - offsetY) / scale);
+        
+        markers.forEach(m => {
+            const dist = Math.sqrt(Math.pow(m.x - mX, 2) + Math.pow(m.y - mY, 2));
+            if (dist < 35) {
+                const mT = document.getElementById('modal-title');
+                const mI = document.getElementById('modal-img');
+                const mD = document.getElementById('modal-desc');
+                if (m.type === "boss_shturman.png") {
+                    mT.innerText = "Штурман"; mI.src = "shturman_photo.jpg"; mI.style.display = "block";
+                    mD.innerHTML = "<p><b>Штурман</b></p><p><a href='#' style='color:#aaa;'>Гайд по бою...</a></p><p style='color:#666;'>03.07.22</p>";
+                    document.getElementById('modal').style.display = 'block';
+                } else if (m.type === "spawn_pmc.png") {
+                    mT.innerText = "Спавн ЧВК"; mI.style.display = "none"; mD.innerHTML = "<p>Точка появления игроков ЧВК.</p>";
+                    document.getElementById('modal').style.display = 'block';
+                } else if (m.type === "spawn_scav.png") {
+                    mT.innerText = "Дикие"; mI.style.display = "none"; mD.innerHTML = "<p>Место обитания Диких.</p>";
+                    document.getElementById('modal').style.display = 'block';
+                }
+            }
+        });
+
+        if (isRulerMode) { if (rulerPoints.length >= 2) rulerPoints = []; rulerPoints.push({x: mX, y: mY}); draw(); }
+        else { document.getElementById('coord-label').innerHTML = `Координаты: X: ${mX}, Y: ${mY}`; }
     };
 
-    window.onresize = init;
-    overviewImg.onload = draw;
-    init();
+    window.onresize = init; overviewImg.onload = draw; init();
 </script>
 </body>
 </html>
